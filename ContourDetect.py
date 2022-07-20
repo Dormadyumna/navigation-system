@@ -54,7 +54,7 @@ def getContours(imgCanny, imgCopy):
 
 #MAIN
 augDict= loadImages('ArucoDB')
-img = cv2.imread('squareTiles.jpg')
+img = cv2.imread('Images\squareTiles.jpg')
 imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 imgCanny = cv2.Canny(imgGray,50,50)
 imgCopy = img.copy()
