@@ -24,12 +24,13 @@ def findArucoMarkers(img, markerSize = 6, totalMarkers = 250, draw = True):
     # key = getattr(aruco, 'DICT_{markerSize}X{markerSize}_{totalMarkers}')
     arucoDict = aruco.Dictionary_get(aruco.DICT_6X6_250)
     arucoParam = aruco.DetectorParameters_create()
-    bboxs, ids, rejected = aruco.detectMarkers(imgGray, arucoDict, parameters = arucoParam)
+    bboxs, ids, _ = aruco.detectMarkers(imgGray, arucoDict, parameters = arucoParam)
 
     # print(ids)
     if draw:
         aruco.drawDetectedMarkers(img, bboxs)
     
+    print(bboxs)
     return [bboxs, ids]
 
 #MAIN
