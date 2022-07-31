@@ -108,13 +108,13 @@ for spot in spots:
 start = spots[0]
 end = spots[63]
 
-hue = []
-for spot in spots:
-    hue.append( abs(spot.centre[0]-end.centre[0]) + abs(spot.centre[1]-end.centre[1]) )
+# hue = []
+# for spot in spots:
+#     hue.append( abs(spot.centre[0]-end.centre[0]) + abs(spot.centre[1]-end.centre[1]) )
 
-print(hue)
+# print(hue)
 
-g = []
+# g = []
 
 cv2.imshow('Contour Detection', imgCopy)
 cv2.waitKey(10000000)
