@@ -3,12 +3,15 @@ import cv2.aruco as aruco
 import numpy as np
 import os
 from queue import PriorityQueue
+import time
 
 aruco_begin = 23
 aruco_end = 98
 
 begin = 0
 last = 0
+
+st = time.time()
 
 # return augDict
 def loadImages (path):
@@ -27,6 +30,8 @@ def loadImages (path):
 
     return augDict
 
+augDict= loadImages('ArucoDB')
+
 # return [bboxs, ids]
 def findArucoMarkers(img, markerSize = 6, totalMarkers = 250, draw = True):
 
@@ -43,10 +48,22 @@ def findArucoMarkers(img, markerSize = 6, totalMarkers = 250, draw = True):
 
 # cv2.drawContours(imgCopy, contour, -1, (0,255,0), 2)
 
-
-
 minContours = []
 total = 0
+
+class Spot:
+    def __init__(self, x, y, w, h, id):
+        self.x = x
+        self.y = y
+        self.w = w
+        self.h = h
+        self.left = -1
+        self.up = -1
+        self.right = -1
+        self.down = -1
+        self.id = id    
+        self.neighbors = []
+        self.centre = (x+w/2, y+h/2)
 
 def getContours(imgCanny, imgCopy):
     contours, _ = cv2.findContours(imgCanny, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
@@ -67,75 +84,18 @@ def getContours(imgCanny, imgCopy):
 
     print("THE TOTAL NO. OF NODES ARE")
     print(i)
-    global total
+    global total 
     total = i
 
-class Spot:
-    def __init__(self, x, y, w, h, id, left = -1, up = -1, right = -1, down = -1):
-        self.x = x
-        self.y = y
-        self.w = w
-        self.h = h
-        self.left = -1
-        self.up = -1
-        self.right = -1
-        self.down = -1
-        self.id = id    
-        self.neighbors = []
-        self.centre = (x+w/2, y+h/2)
-
 #MAIN
-augDict= loadImages('ArucoDB')
-img = cv2.imread('Images\pathAruco.png')
-imgGray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+img_grid = cv2.imread('Images\path.png')
+imgGray = cv2.cvtColor(img_grid, cv2.COLOR_BGR2GRAY)
 imgCanny = cv2.Canny(imgGray,50,50)
-imgCopy = img.copy()
-
-# getContours(imgCanny, imgCopy)
-
-# cv2.imshow('Contour Detection', imgCopy)
-# cv2.waitKey(10000000)
-
-arucoFound = findArucoMarkers(img)
-print(arucoFound)
-
-arucoDetected = []
-
-if len(arucoFound[0])!= 0:
-    for bbox, id in zip(arucoFound[0], arucoFound[1]):
-        if int(id) in augDict.keys():
-            arucoDetected.append([id, (bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2])
-            print( (bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2 )
-
-begin_point = (0,0)
-begin_orient = 0
-last_point = (0,0)
-last_orient = 0
-
-print(arucoDetected)
-
-if len(arucoFound[0])!= 0:
-    for bbox, id in zip(arucoFound[0], arucoFound[1]):
-        if int(id) == aruco_begin:
-            begin_point = ((bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2)
-            begin_orient = bbox
-        elif int(id) == aruco_end:
-            last_point = ((bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2)
-            last_orient = bbox
-
-print(begin_orient, last_orient)
-print(begin_point, last_point)
-
-# i = 0
-# for cnt in minContours:
-#     if(cv2.pointPolygonTest(cnt, begin_point, False)==1):
-#         begin = i
-#         print("begin", i)
-#     elif(cv2.pointPolygonTest(cnt, last_point, False)==1):
-#         last = i 
-#         print("last", i)
+imgCopy = img_grid.copy()
 
 getContours(imgCanny, imgCopy)
+
+# while(True):
 
 w_all = []
 h_all = []
@@ -154,180 +114,242 @@ for cnt in minContours:
 
     id = id + 1
 
-for spot in spots:
-    if(begin_point[0]>=spot.x and begin_point[0]<=(spot.x + spot.w) and begin_point[1]>=spot.y and begin_point[1]<=(spot.y+spot.h) ):
-        begin = spot.id
-    elif(last_point[0]>=spot.x and last_point[0]<=(spot.x + spot.w) and last_point[1]>=spot.y and last_point[1]<=(spot.y+spot.h) ):
-        last = spot.id
 
-w_sum = 0
-h_sum = 0
+# getContours(imgCanny, imgCopy)
 
-for w in w_all:
-    w_sum = w_sum + w
-
-for h in h_all:
-    h_sum = h_sum + h
-
-w_av = w_sum/total
-h_av = h_sum/total
-
-for spot in spots:
-    i = 0
-    for cnt in minContours:
-        # print(spot)
-        if(cv2.pointPolygonTest(cnt, (spot.centre[0] + w_av, spot.centre[1]), False)==1):
-            spot.right = i
-            spot.neighbors.append(i)
-        elif(cv2.pointPolygonTest(cnt, (spot.centre[0] - w_av, spot.centre[1]), False)==1):
-            spot.neighbors.append(i)
-            spot.left = i
-        elif(cv2.pointPolygonTest(cnt, (spot.centre[0] , spot.centre[1] + h_av), False)==1):
-            spot.neighbors.append(i)
-            spot.down = i
-        elif(cv2.pointPolygonTest(cnt, (spot.centre[0] , spot.centre[1] - h_av), False)==1):
-            spot.up = i
-            spot.neighbors.append(i)
-        i = i + 1
-
-for spot in spots:
-    print(spot.id, spot.neighbors)
-
-
-start = spots[begin]
-end = spots[last]
-
-hue = []
-for spot in spots:
-    hue.append( abs(spot.centre[0]-end.centre[0]) + abs(spot.centre[1]-end.centre[1]) )
-    
-count = 0
-open_set = PriorityQueue()
-open_set.put( (0, count, begin) ) #f_score, count(for tie breaking if 2 have same f_score), spot_id) 
-came_from = {}
-g_score = {spot: float("inf") for spot in range(0,i+1)}
-g_score[begin] = 0
-f_score = {spot: float("inf") for spot in range(0,i+1)}
-f_score[begin] = abs(spots[0].centre[0]-spots[last].centre[0]) + abs(spots[0].centre[1]-spots[last].centre[1])
-
-# print(f_score[0])
-
-open_set_hash = {begin}
-
-path = []
-
-while not open_set.empty():
-    current = open_set.get()[2]
-    print(open_set_hash)
-    print(current)
-    path.append(current)
-    
-    open_set_hash.remove(current)
-
-    if current == last:
-        break
-    
-    for neighbor in spots[current].neighbors:
-        temp_g_score = g_score[current] + 45
-
-        if temp_g_score < g_score[neighbor]:
-            came_from[neighbor] = current
-            g_score[neighbor] = temp_g_score
-            f_score[neighbor] = temp_g_score + hue[neighbor]
-
-            if neighbor not in open_set_hash:
-                count = count + 1
-                open_set.put( (f_score[neighbor], count, neighbor) )
-                open_set_hash.add(neighbor)
-
-direction = [0]
-
-def spotDirection(curr, prev):
-    if(curr == spots[prev].left):
-        print(curr, prev)
-        print("left")
-        return "left"
-    elif(curr == spots[prev].up):
-        print(curr, prev)
-        print("up")
-        return "up"
-    elif(curr == spots[prev].right):
-        print(curr, prev)
-        print("right")
-        return "right"    
-    elif(curr == spots[prev].down):
-        print(curr, prev)
-        print("down")
-        return "down"
-
-pathDirection = []
-for i in range(1, len(path)):
-    pathDirection.append(spotDirection(path[i],path[i-1]))
-
-print(pathDirection)
-
-nonOrientedCommands = []
-initial_orient = 0
-
-print("begin_orient[0][0][0]", begin_orient[0][0][0])
-print("begin_orient[0][0][1]", begin_orient[0][0][1])
-print("begin_orient[0][2][0]", begin_orient[0][2][0])
-print("begin_orient[0][2][1]", begin_orient[0][2][1])
-print("begin_orient[0][0][0]", begin_orient[0][0][0])
-print("begin_orient[0][0][1]", begin_orient[0][0][1])
-
-if(begin_orient[0][0][0] <= begin_orient[0][1][0] and begin_orient[0][0][1] <= begin_orient[0][3][1]):
-    initial_orient = "up"
-elif(begin_orient[0][0][0] <= begin_orient[0][3][0] and begin_orient[0][0][1] >= begin_orient[0][1][1]):
-    initial_orient = "right"
-elif(begin_orient[0][0][0] >= begin_orient[0][1][0] and begin_orient[0][0][1] <= begin_orient[0][3][1]):
-    initial_orient = "down"
-elif(begin_orient[0][0][0] >= begin_orient[0][3][0] and begin_orient[0][0][1] <= begin_orient[0][1][1]):
-    initial_orient = "left"
-
-# print(initial_orient)
-
-
-nonOrientedCommands.append("forward")
-for i in range(0, len(pathDirection)-1):
-    if(pathDirection[i+1] == pathDirection[i]):
-        nonOrientedCommands.append("forward")
-    elif( (pathDirection[i+1]=="up" and pathDirection[i]=="left") or (pathDirection[i+1]=="right" and pathDirection[i]=="up") or (pathDirection[i+1]=="down" and pathDirection[i]=="right") or (pathDirection[i+1]=="left" and pathDirection[i]=="down") ):
-        nonOrientedCommands.append("right")
-    elif( (pathDirection[i+1]=="down" and pathDirection[i]=="left") or (pathDirection[i+1]=="right" and pathDirection[i]=="down") or (pathDirection[i+1]=="up" and pathDirection[i]=="right") or (pathDirection[i+1]=="left" and pathDirection[i]=="up") ):
-        nonOrientedCommands.append("left")
-   
-print(nonOrientedCommands)
-commandSequence = nonOrientedCommands.copy()
-
-if(pathDirection[0] == initial_orient):
-    commandSequence[0] = "forward"
-elif( (pathDirection[0]=="up" and initial_orient =="left") or (pathDirection[0]=="right" and initial_orient=="up") or (pathDirection[0]=="down" and initial_orient=="right") or (pathDirection[0]=="left" and initial_orient=="down") ):
-    commandSequence[0] = "right"
-elif( (pathDirection[0]=="down" and initial_orient=="left") or (pathDirection[0]=="right" and initial_orient=="down") or (pathDirection[0]=="up" and initial_orient=="right") or (pathDirection[0]=="left" and initial_orient=="up") ):
-    commandSequence[0] = "left"
-elif( (pathDirection[0]=="down" and initial_orient=="up") or (pathDirection[0]=="right" and initial_orient=="left") or (pathDirection[0]=="up" and initial_orient=="down") or (pathDirection[0]=="left" and initial_orient=="right") ):
-    commandSequence[0]= "reverse"
-
-print(commandSequence)
-
-# for i in range(len(path)):
-#     if 
-
-# print(hue)
-# print("\n\n")
-# print(g_score)
-# print("\n\n")
-# print(f_score)
-
-print(path)
-# imgF = cv2.resize(img, (1600,800))
-# cv2.imshow('ArucoDetection', imgF)
+# cv2.imshow('Contour Detection', imgCopy)
 # cv2.waitKey(10000000)
+run_num = 1
 
-# print(begin_orient[0][0][0])
+while(run_num!=6):
 
-imgFinal = cv2.resize(imgCopy, (1600,800))
-findArucoMarkers(imgFinal)
-cv2.imshow('Contour Detection', imgFinal)
-cv2.waitKey(10000000)
+    img_calc = cv2.imread(f'Images\pathAruco{run_num}.png')
+
+    arucoFound = findArucoMarkers(img_calc)
+    print(arucoFound)
+
+    arucoDetected = []
+
+    if len(arucoFound[0])!= 0:
+        for bbox, id in zip(arucoFound[0], arucoFound[1]):
+            if int(id) in augDict.keys():
+                arucoDetected.append([id, (bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2])
+                print( (bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2 )
+
+    begin_point = (0,0)
+    begin_orient = 0
+    last_point = (0,0)
+    last_orient = 0
+
+    print(arucoDetected)
+
+    if len(arucoFound[0])!= 0:
+        for bbox, id in zip(arucoFound[0], arucoFound[1]):
+            if int(id) == aruco_begin:
+                begin_point = ((bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2)
+                print("begin_box", bbox)
+                begin_orient = bbox
+            elif int(id) == aruco_end:
+                last_point = ((bbox[0][0][0]+bbox[0][2][0])/2, (bbox[0][0][1]+bbox[0][2][1])/2)
+                print("end_box", bbox)
+                last_orient = bbox
+
+    print(begin_orient, last_orient)
+    print(begin_point, last_point)
+
+    # i = 0
+    # for cnt in minContours:
+    #     if(cv2.pointPolygonTest(cnt, begin_point, False)==1):
+    #         begin = i
+    #         print("begin", i)
+    #     elif(cv2.pointPolygonTest(cnt, last_point, False)==1):
+    #         last = i 
+    #         print("last", i)
+
+    for spot in spots:
+        if(begin_point[0]>=spot.x and begin_point[0]<=(spot.x + spot.w) and begin_point[1]>=spot.y and begin_point[1]<=(spot.y+spot.h) ):
+            begin = spot.id
+        elif(last_point[0]>=spot.x and last_point[0]<=(spot.x + spot.w) and last_point[1]>=spot.y and last_point[1]<=(spot.y+spot.h) ):
+            last = spot.id
+
+    w_sum = 0
+    h_sum = 0
+
+    for w in w_all:
+        w_sum = w_sum + w
+
+    for h in h_all:
+        h_sum = h_sum + h
+
+    w_av = w_sum/total
+    h_av = h_sum/total
+
+    for spot in spots:
+        i = 0
+        for cnt in minContours:
+            # print(spot)
+            if(cv2.pointPolygonTest(cnt, (spot.centre[0] + w_av, spot.centre[1]), False)==1):
+                spot.right = i
+                spot.neighbors.append(i)
+            elif(cv2.pointPolygonTest(cnt, (spot.centre[0] - w_av, spot.centre[1]), False)==1):
+                spot.neighbors.append(i)
+                spot.left = i
+            elif(cv2.pointPolygonTest(cnt, (spot.centre[0] , spot.centre[1] + h_av), False)==1):
+                spot.neighbors.append(i)
+                spot.down = i
+            elif(cv2.pointPolygonTest(cnt, (spot.centre[0] , spot.centre[1] - h_av), False)==1):
+                spot.up = i
+                spot.neighbors.append(i)
+            i = i + 1
+
+    for spot in spots:
+        print(spot.id, spot.neighbors)
+
+
+    start = spots[begin]
+    end = spots[last]
+
+    hue = []
+    for spot in spots:
+        hue.append( abs(spot.centre[0]-end.centre[0]) + abs(spot.centre[1]-end.centre[1]) )
+        
+    count = 0
+    open_set = PriorityQueue()
+    open_set.put( (0, count, begin) ) #f_score, count(for tie breaking if 2 have same f_score), spot_id) 
+    came_from = {}
+    g_score = {spot: float("inf") for spot in range(0,i+1)}
+    g_score[begin] = 0
+    f_score = {spot: float("inf") for spot in range(0,i+1)}
+    f_score[begin] = abs(spots[0].centre[0]-spots[last].centre[0]) + abs(spots[0].centre[1]-spots[last].centre[1])
+
+    # print(f_score[0])
+
+    open_set_hash = {begin}
+
+    path = []
+
+    while not open_set.empty():
+        current = open_set.get()[2]
+        print(open_set_hash)
+        print(current)
+        path.append(current)
+        
+        open_set_hash.remove(current)
+
+        if current == last:
+            break
+        
+        for neighbor in spots[current].neighbors:
+            temp_g_score = g_score[current] + 45
+
+            if temp_g_score < g_score[neighbor]:
+                came_from[neighbor] = current
+                g_score[neighbor] = temp_g_score
+                f_score[neighbor] = temp_g_score + hue[neighbor]
+
+                if neighbor not in open_set_hash:
+                    count = count + 1
+                    open_set.put( (f_score[neighbor], count, neighbor) )
+                    open_set_hash.add(neighbor)
+
+    direction = [0]
+
+    def spotDirection(curr, prev):
+        if(curr == spots[prev].left):
+            print(curr, prev)
+            print("left")
+            return "left"
+        elif(curr == spots[prev].up):
+            print(curr, prev)
+            print("up")
+            return "up"
+        elif(curr == spots[prev].right):
+            print(curr, prev)
+            print("right")
+            return "right"    
+        elif(curr == spots[prev].down):
+            print(curr, prev)
+            print("down")
+            return "down"
+
+    pathDirection = []
+    for i in range(1, len(path)):
+        pathDirection.append(spotDirection(path[i],path[i-1]))
+
+    print(pathDirection)
+
+    nonOrientedCommands = []
+    initial_orient = 0
+
+    # print("begin_orient[0][0][0]", begin_orient[0][0][0])
+    # print("begin_orient[0][0][1]", begin_orient[0][0][1])
+    # print("begin_orient[0][2][0]", begin_orient[0][2][0])
+    # print("begin_orient[0][2][1]", begin_orient[0][2][1])
+    # print("begin_orient[0][0][0]", begin_orient[0][0][0])
+    # print("begin_orient[0][0][1]", begin_orient[0][0][1])
+
+    if(begin_orient[0][0][0] <= begin_orient[0][1][0] and begin_orient[0][0][1] <= begin_orient[0][3][1]):
+        initial_orient = "up"
+    elif(begin_orient[0][0][0] <= begin_orient[0][3][0] and begin_orient[0][0][1] >= begin_orient[0][1][1]):
+        initial_orient = "right"
+    elif(begin_orient[0][0][0] >= begin_orient[0][1][0] and begin_orient[0][0][1] <= begin_orient[0][3][1]):
+        initial_orient = "down"
+    elif(begin_orient[0][0][0] >= begin_orient[0][3][0] and begin_orient[0][0][1] <= begin_orient[0][1][1]):
+        initial_orient = "left"
+
+    # print(initial_orient)
+
+
+    nonOrientedCommands.append("forward")
+    for i in range(0, len(pathDirection)-1):
+        if(pathDirection[i+1] == pathDirection[i]):
+            nonOrientedCommands.append("forward")
+        elif( (pathDirection[i+1]=="up" and pathDirection[i]=="left") or (pathDirection[i+1]=="right" and pathDirection[i]=="up") or (pathDirection[i+1]=="down" and pathDirection[i]=="right") or (pathDirection[i+1]=="left" and pathDirection[i]=="down") ):
+            nonOrientedCommands.append("right")
+        elif( (pathDirection[i+1]=="down" and pathDirection[i]=="left") or (pathDirection[i+1]=="right" and pathDirection[i]=="down") or (pathDirection[i+1]=="up" and pathDirection[i]=="right") or (pathDirection[i+1]=="left" and pathDirection[i]=="up") ):
+            nonOrientedCommands.append("left")
+
+    print(nonOrientedCommands)
+    commandSequence = nonOrientedCommands.copy()
+
+    if(pathDirection[0] == initial_orient):
+        commandSequence[0] = "forward"
+    elif( (pathDirection[0]=="up" and initial_orient =="left") or (pathDirection[0]=="right" and initial_orient=="up") or (pathDirection[0]=="down" and initial_orient=="right") or (pathDirection[0]=="left" and initial_orient=="down") ):
+        commandSequence[0] = "right"
+    elif( (pathDirection[0]=="down" and initial_orient=="left") or (pathDirection[0]=="right" and initial_orient=="down") or (pathDirection[0]=="up" and initial_orient=="right") or (pathDirection[0]=="left" and initial_orient=="up") ):
+        commandSequence[0] = "left"
+    elif( (pathDirection[0]=="down" and initial_orient=="up") or (pathDirection[0]=="right" and initial_orient=="left") or (pathDirection[0]=="up" and initial_orient=="down") or (pathDirection[0]=="left" and initial_orient=="right") ):
+        commandSequence[0]= "reverse"
+
+    print(commandSequence)
+
+    # for i in range(len(path)):
+    #     if 
+
+    # print(hue)
+    # print("\n\n")
+    # print(g_score)
+    # print("\n\n")
+    # print(f_score)
+
+    print(path)
+    # imgF = cv2.resize(img, (1600,800))
+    # cv2.imshow('ArucoDetection', imgF)
+    # cv2.waitKey(10000000)
+
+    # print(begin_orient[0][0][0])
+
+    et = time.time()
+
+    print("exec_time", et - st)
+
+    for spot in spots:
+        cv2.putText(img_calc, str(spot.id), (spot.x + (spot.w//2),spot.y + (spot.h//2)), cv2.FONT_HERSHEY_PLAIN, 1, (255,0,0), 2, cv2.FILLED)
+
+    imgFinal = cv2.resize(img_calc, (1600,800))
+    findArucoMarkers(imgFinal)
+    cv2.imshow('Contour Detection', imgFinal)
+    if cv2.waitKey(0) & 0xFF == ord('q'):
+        break
+    run_num = run_num + 1
+    
